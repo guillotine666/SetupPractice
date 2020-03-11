@@ -1,15 +1,14 @@
 import sys
 import argparse
 import json
-from bs4 import BeautifulSoup
-import requests
+from requests_html import HTMLSession
 
 
 def createParse():
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--text', required=True)
     parser.add_argument('-s', '--site', default='google.com', required=True)
-    parser.add_argument('-c', '--count', default=0, type=int)
+    parser.add_argument('-c', '--count', default=999, type=int)
     parser.add_argument('-r', '--recursion', default=False, action='store_const', const=True)
     parser.add_argument('-o', '--output', default='cmd', choices=['cmd', 'json', 'csv'])
 
@@ -30,22 +29,24 @@ def save_in_csv(data):
 
 
 def search(text, site, output_format, count, recursion):
+    session = HTMLSession()
+    res = session.get(f'https://www.google.com/search?q={text}')
+
     if site in ['ya.ru', 'yandex.ru']:
-        html = requests.get(f'https://yandex.ru/search/?text={text}&lr=54')
+        res = session.get(f'https://yandex.ru/search/?text={text}&lr=54')
     elif site == 'bing.com':
-        html = requests.get(f'https://www.bing.com/search?q={text}')
+        res = session.get(f'https://www.bing.com/search?q={text}')
     else:
-        html = requests.get(f'https://www.google.com/search?q={text}')
-    soup = BeautifulSoup(html.text, 'html.parser')
+        res = session.get(f'https://www.google.com/search?q={text}')
     result = {}
 
     if count == 0:
-        all_links = soup.find_all('a')
+        all_links = res.html.find('a')
     else:
-        all_links = soup.find_all('a', limit=count)
+        all_links = res.html.find('a')[:count]
 
     for link in all_links:
-        result.update({link.text: link.get('href')})
+        result.update({link.text: link.absolute_links})
 
     if output_format == 'json':
         return save_in_json(result)
